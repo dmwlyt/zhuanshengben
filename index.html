@@ -491,9 +491,9 @@ function renderSyncCard(){
     const pwd = el('input', {class:'sync-input', type:'password', placeholder:'密码（至少 4 位）'});
     const doLogin = () => {
       const a = input.value.trim();
-      const p = pwd.value;
+      const p = String(pwd.value || '').trim();   // 去掉输入法可能带入的首尾空格
       if(!a){ toast('请输入账号'); return; }
-      if(p.length < 4){ toast('密码至少 4 位'); return; }
+      if(p.length < 4){ toast('密码至少 4 位（请检查是否输入了空格）'); return; }
       syncLogin(a, p);
     };
     input.addEventListener('keydown', e => { if(e.key === 'Enter') pwd.focus(); });
