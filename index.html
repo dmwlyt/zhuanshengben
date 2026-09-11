@@ -579,9 +579,7 @@ function getTopics(subject){
   DATA.questions.forEach(q => { if(q.subject===subject && q.topic) set.add(q.topic); });
   return [...set];
 }
-function getPracticeList(){
-  const key = state.subject + '|' + (state.typeFilter||'all') + '|' + (state.topicFilter||'__all__') + '|' + (state.paperYear||'__all__') + '|' + (state.random?1:0);
-  if(state._listKey === key && state._listCache) return state._listCache;
+function buildFilteredList(){
   let list = getSubjectQuestions();
   if(state.typeFilter === 'favorites'){
     list = list.filter(q => !!state.favorites[q.id]);
@@ -590,6 +588,17 @@ function getPracticeList(){
   }
   if(state.topicFilter) list = list.filter(q => q.topic === state.topicFilter);
   if(state.paperYear) list = list.filter(q => q.source === '江西专升本真题·' + state.paperYear || q.source === '江西专升本数学真题·' + state.paperYear);
+  return list;
+}
+function getPracticeList(){
+  const key = state.subject + '|' + (state.typeFilter||'all') + '|' + (state.topicFilter||'__all__') + '|' + (state.paperYear||'__all__') + '|' + (state.random?1:0);
+  if(state._listKey === key && state._listCache) return state._listCache;
+  let list = buildFilteredList();
+  /* 兜底：组合筛选结果为空时，清除不兼容的专题筛选后重试一次，避免卡在空页面 */
+  if(list.length === 0 && state.topicFilter){
+    state.topicFilter = null;
+    list = buildFilteredList();
+  }
   if(state.random) list = shuffle(list);
   state._listKey = key;
   state._listCache = list;
@@ -1096,14 +1105,17 @@ function renderAll(){
     state._listKey = null;
     state.index = firstUnansweredIndex(getPracticeList()); save(); renderAll();
   });
-  /* 真题卷年份筛选（跨科目全局筛选） */
+  /* 真题卷年份筛选（计数跟随当前科目） */
   const paperYears = ['2021','2022','2023','2024','2025','2026'];
   const paperItems = [{id:'__all__', name:'全部题库'}].concat(paperYears.map(y=>{
-    const c = DATA.questions.filter(q => q.source === '江西专升本真题·' + y || q.source === '江西专升本数学真题·' + y).length;
+    const c = DATA.questions.filter(q => q.subject === state.subject &&
+      (q.source === '江西专升本真题·' + y || q.source === '江西专升本数学真题·' + y)).length;
     return {id:y, name:y+'真题', count:c, zero: c===0};
   }));
   renderChips('#paperChips', paperItems, state.paperYear || '__all__', id=>{
     state.paperYear = id === '__all__' ? null : id;
+    /* 进入真题模式时清除普通专题筛选（真题专题为"真题卷"，与题库专题互斥） */
+    if(state.paperYear && state.topicFilter !== '真题卷') state.topicFilter = null;
     state._listKey = null;
     state.index = firstUnansweredIndex(getPracticeList()); save(); renderAll();
   });
